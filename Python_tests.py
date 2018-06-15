@@ -1,7 +1,13 @@
-import pygame
+import pygame,sys
+import random
 from pygame.locals import *
 
 #---------------- Utils ----------------------
+
+KEY_A = "K_A"
+KEY_S = "KEY_S"
+KEY_D = "KEY_D"
+KEY_W = "KEY_W"
 
 def swap(a,b):
 	a,b = b,a
@@ -9,9 +15,7 @@ def swap(a,b):
 #---------------- Class window ----------------------
 
 class Window:
-	w = 0
-	h = 0
-
+	w,h = 0,0
 	screen = None
 
 	def __init__(self,_w,_h):
@@ -52,8 +56,7 @@ class My_Rect:
 
 class Field:
 
-	w = 0
-	h = 0
+	w,h = 0,0
 	color = None
 
 	def __init__(self,_w,_h,_color):
@@ -65,7 +68,7 @@ class Field:
 		for i in range(0,self.w,step):
 			pygame.draw.line(screen,self.color,(i,0),(i,self.h),3)
 		for i in range(0,self.h,step):
-			pygame.draw.line(screen,self.color,(i,0),(i,self.w),3)
+			pygame.draw.line(screen,self.color,(0,i),(self.w,i),3)
 
 
 #---------------- Class Snake ----------------------
@@ -76,10 +79,7 @@ class Snake:
 
 	color = 0
 
-	x,y = 0,0
-	w,h = 0,0
-
-	width,height = 0,0
+	x,y,w,h,width,height = 0,0,0,0,0,0
 
 	_dir = 0
 
@@ -104,6 +104,8 @@ class Snake:
 		for rect in self.snake:
 			rect.draw_rect(screen)
 
+
+
 	def move(self):
 
 		i = len(self.snake) - 1
@@ -114,26 +116,50 @@ class Snake:
 			self.snake[i].y = self.snake[i - 1].y
 			i-=1
 
-		if self.snake[0].x > self.width:
-			self.snake[0].x = 0
-		if self.snake[0].x < 0:
-			self.snake[0].x = self.width
-		if self.snake[0].y > self.height:
-			self.snake[0].y = 0
-		if self.snake[0].y < 0:
-			self.snake[0].y = self.height
+		if self.snake[0].x > self.width:  self.snake[0].x = 0
+		if self.snake[0].x < 0: 		  self.snake[0].x = self.width
+		if self.snake[0].y > self.height: self.snake[0].y = self.w
+		if self.snake[0].y < self.w:	  self.snake[0].y = self.height
 
-		if self._dir == 0:
-			self.snake[0].x += self.w
-		elif self._dir == 1:
-			self.snake[0].x -= self.w
-		elif self._dir == 2:
-			self.snake[0].y += self.w
-		elif _dir == 3:
-			self.snake[0].y -= self.w
+		if   self._dir == 0: self.snake[0].x += self.w
+		elif self._dir == 1: self.snake[0].x -= self.w
+		elif self._dir == 2: self.snake[0].y += self.w
+		elif self._dir == 3:  	 self.snake[0].y -= self.w
 
 		for rect in self.snake:
 			rect.change()
+
+	def key(self,key):
+		if 	 key == pygame.K_d and self._dir != 1 : self._dir = 0
+		elif key == pygame.K_a and self._dir != 0 : self._dir = 1
+		elif key == pygame.K_s and self._dir != 3 : self._dir = 2
+		elif key == pygame.K_w and self._dir != 2 : self._dir = 3
+
+	def add(self):
+		lenght = len(self.snake) - 1
+
+		x = self.snake[lenght].x + self.w
+		y = self.snake[lenght].y + self.w
+
+		self.snake.append(My_Rect(self.w,self.h,x,y,self.color))
+
+#---------------- Class Apple ----------------------
+
+class Apple:
+	x,y,w,h = 0,0,0,0
+	color = [0,255,0]
+
+	_rect_apple = None
+
+	def __init__(self,_x,_y,_w):
+		self.x,self.y,self.w,self.h = _x,_y,_w,_w
+		self._rect_apple = My_Rect(_w,_w,_x,_y,self.color)
+
+	def draw(self,screen):
+		self._rect_apple.draw_rect(screen)
+
+	def new_spawn(self):
+		self._rect_apple = My_Rect(self.w,self.w,random.randint(0,20) * self.w,random.randint(1,20) * self.w,self.color)
 
 
 #Start settiongs 
@@ -154,24 +180,65 @@ window = Window(WIDTH,HEIGHT)
 
 window.info()
 
+#Init game objects 
+
+points = 0
+
 field = Field(WIDTH,HEIGHT,[0,0,0])
 snake = Snake(0,0,SNAKE_WIDTH,SNAKE_WIDTH,WIDTH,HEIGHT)
+apples = []
+
+for i in range(5):
+	x = random.randint(0,20) 	 * SNAKE_WIDTH
+	y = random.randint(1,20) * SNAKE_WIDTH
+	apples.append(Apple(x,y,SNAKE_WIDTH))
+
+pygame.font.init()
+
+font_points = pygame.font.SysFont("FreeSans", 20)
+Points_str = "Points = " + str(points)
+
+#Main game loop
 
 while mainLoop:
 	pygame.time.wait(100)
+
+	Points_str = "Points = " + str(points)
+
 	for event in pygame.event.get():
 		if event.type == QUIT:
 			mainLoop = False
+		if event.type == pygame.KEYDOWN:
+			snake.key(event.key)
 		
 	window.get_window().fill(bg_color)
+
+	for apple in apples:
+		apple.draw(window.get_window())
+
+	#collision
+	for apple in apples:
+		if apple.x == snake.snake[0].x and apple.y == snake.snake[0].y:
+			print("Boom")
+			points+=1
+			apple.new_spawn()
+			snake.add()
+	#-------------------------
 
 	snake.move()
 	snake.draw_snake(window.get_window())
 
 	field.draw_field(window.get_window(),SNAKE_WIDTH)
 
+	window.get_window().blit(font_points.render(Points_str, 0, (255,255,255)),(0,0))
 	pygame.display.update()
 
+#------------------------ End
+
+pygame.font.quit()
 pygame.quit()
+
+
+
 
 
